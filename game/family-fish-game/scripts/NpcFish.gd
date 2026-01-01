@@ -3,6 +3,8 @@ extends Area2D
 
 @export var size_scale: float = 1.5
 @export var speed: float = 120.0
+@export var speed_scale: float = 1.0
+@export var base_sprite_size: float = 20.0
 @export var is_predator: bool = false
 @export var is_poisonous: bool = false
 @export var awareness_range: float = 150.0
@@ -35,14 +37,21 @@ extends Area2D
 @export var base_brightness: float = 1.12
 @export var shade_variance: float = 0.06
 @export var threat_glow_color: Color = Color(1, 0.2, 0.2, 1)
-@export var threat_glow_alpha: float = 0.32
-@export var threat_glow_scale: float = 1.5
+@export var threat_glow_alpha: float = 0.85
+@export var threat_glow_scale: float = 2.9
 @export var poison_glow_color: Color = Color(0.18, 0.55, 0.2, 1)
-@export var poison_glow_alpha: float = 0.35
-@export var poison_glow_scale: float = 1.9
+@export var poison_glow_alpha: float = 0.9
+@export var poison_glow_scale: float = 3.3
+@export var glow_texture_size: int = 128
 
-const PREY_TEXTURE: Texture2D = preload("res://art/fish_prey.svg")
-const PREDATOR_TEXTURE: Texture2D = preload("res://art/fish_predator.svg")
+const PREY_TEXTURES: Array[Texture2D] = [
+	preload("res://art/fish_prey_yellow.png"),
+	preload("res://art/fish_prey_blue.png"),
+	preload("res://art/fish_prey_clown_fixed.png")
+]
+const PREDATOR_TEXTURES: Array[Texture2D] = [
+	preload("res://art/fish_predator_angler.png")
+]
 
 enum Behavior { WANDER, SCHOOL, SKITTISH, AMBUSH }
 @export var behavior: Behavior = Behavior.WANDER
@@ -77,6 +86,7 @@ func _ready() -> void:
 	threat_glow.material = glow_material
 	threat_glow.texture = glow_texture
 	threat_glow.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	threat_glow.z_index = 2
 	_update_visuals()
 	_update_threat_tint()
 	_pick_wander_direction()
@@ -102,10 +112,10 @@ func _apply_type() -> void:
 	remove_from_group("prey")
 	if is_predator:
 		add_to_group("predator")
-		body.texture = PREDATOR_TEXTURE
+		body.texture = PREDATOR_TEXTURES[rng.randi_range(0, PREDATOR_TEXTURES.size() - 1)]
 	else:
 		add_to_group("prey")
-		body.texture = PREY_TEXTURE
+		body.texture = PREY_TEXTURES[rng.randi_range(0, PREY_TEXTURES.size() - 1)]
 	if is_poisonous:
 		add_to_group("poison")
 	_assign_style()
@@ -159,8 +169,9 @@ func _process(delta: float) -> void:
 
 	if current_direction.x != 0.0:
 		body.flip_h = current_direction.x < 0.0
+		threat_glow.flip_h = body.flip_h
 
-	position += current_direction * speed * speed_multiplier * delta
+	position += current_direction * speed * speed_multiplier * speed_scale * delta
 	_keep_in_bounds()
 	_update_threat_tint()
 
@@ -172,10 +183,11 @@ func _pick_wander_direction() -> void:
 
 func _get_edge_avoidance() -> Vector2:
 	var steer: Vector2 = Vector2.ZERO
-	var left_limit: float = bounds.position.x + edge_avoid_distance
-	var right_limit: float = bounds.position.x + bounds.size.x - edge_avoid_distance
-	var top_limit: float = bounds.position.y + edge_avoid_distance
-	var bottom_limit: float = bounds.position.y + bounds.size.y - edge_avoid_distance
+	var radius: float = _get_collision_radius()
+	var left_limit: float = bounds.position.x + edge_avoid_distance + radius
+	var right_limit: float = bounds.position.x + bounds.size.x - edge_avoid_distance - radius
+	var top_limit: float = bounds.position.y + edge_avoid_distance + radius
+	var bottom_limit: float = bounds.position.y + bounds.size.y - edge_avoid_distance - radius
 	if position.x < left_limit:
 		steer.x += 1.0
 	elif position.x > right_limit:
@@ -216,10 +228,11 @@ func _get_school_direction() -> Vector2:
 	return combined.normalized()
 
 func _keep_in_bounds() -> void:
-	var min_x: float = bounds.position.x
-	var min_y: float = bounds.position.y
-	var max_x: float = bounds.position.x + bounds.size.x
-	var max_y: float = bounds.position.y + bounds.size.y
+	var radius: float = _get_collision_radius()
+	var min_x: float = bounds.position.x + radius
+	var min_y: float = bounds.position.y + radius
+	var max_x: float = bounds.position.x + bounds.size.x - radius
+	var max_y: float = bounds.position.y + bounds.size.y - radius
 	var margin := 24.0
 
 	if is_predator:
@@ -240,16 +253,43 @@ func set_size_scale(new_scale: float) -> void:
 	size_scale = new_scale
 	_update_visuals()
 
+func set_speed_scale(new_scale: float) -> void:
+	speed_scale = max(new_scale, 0.1)
+
 func _update_visuals() -> void:
-	body.scale = Vector2.ONE * size_scale
+	var texture_scale := _get_texture_scale()
+	body.scale = Vector2.ONE * size_scale * texture_scale
 	var glow_scale: float = threat_glow_scale
 	if is_poisonous:
 		glow_scale = poison_glow_scale
-	threat_glow.scale = Vector2.ONE * size_scale * glow_scale
-	var radius: float = 10.0 * size_scale
-	var shape: CircleShape2D = hit_shape.shape
-	if shape:
-		shape.radius = radius
+	threat_glow.scale = Vector2.ONE * size_scale * texture_scale * glow_scale
+	var shape: Shape2D = hit_shape.shape
+	if shape is RectangleShape2D:
+		var rect_shape := shape as RectangleShape2D
+		var sprite_size := _get_sprite_size() * size_scale * texture_scale
+		rect_shape.size = sprite_size
+	elif shape is CircleShape2D:
+		var circle_shape := shape as CircleShape2D
+		circle_shape.radius = _get_collision_radius()
+
+func _get_texture_scale() -> float:
+	if not body or not body.texture:
+		return 1.0
+	var size: Vector2 = body.texture.get_size()
+	var max_dim: float = max(size.x, size.y)
+	if max_dim <= 0.0:
+		return 1.0
+	return base_sprite_size / max_dim
+
+func _get_sprite_size() -> Vector2:
+	if not body or not body.texture:
+		return Vector2.ONE * base_sprite_size
+	return body.texture.get_size()
+
+func _get_collision_radius() -> float:
+	var texture_scale := _get_texture_scale()
+	var sprite_size := _get_sprite_size() * size_scale * texture_scale
+	return max(sprite_size.x, sprite_size.y) * 0.5
 
 func _update_threat_tint() -> void:
 	if not player_ref:
@@ -258,7 +298,9 @@ func _update_threat_tint() -> void:
 		return
 	var brightness: float = base_brightness
 	var show_threat: bool = false
-	if size_scale > player_ref.size_scale:
+	if is_predator or is_poisonous:
+		show_threat = true
+	elif size_scale > player_ref.size_scale:
 		show_threat = true
 	if is_poisonous:
 		show_threat = true
@@ -271,7 +313,7 @@ func _update_threat_tint() -> void:
 		threat_glow.modulate = Color(threat_glow_color.r, threat_glow_color.g, threat_glow_color.b, threat_glow_alpha)
 
 func _create_glow_texture() -> Texture2D:
-	var size_px: int = 64
+	var size_px: int = max(glow_texture_size, 32)
 	var image: Image = Image.create(size_px, size_px, false, Image.FORMAT_RGBA8)
 	var center: Vector2 = Vector2(size_px * 0.5, size_px * 0.5)
 	var max_dist: float = size_px * 0.5
@@ -279,7 +321,7 @@ func _create_glow_texture() -> Texture2D:
 		for x in range(size_px):
 			var dist: float = Vector2(x, y).distance_to(center)
 			var t: float = clamp(1.0 - dist / max_dist, 0.0, 1.0)
-			var alpha: float = pow(t, 2.4)
+			var alpha: float = pow(t, 1.8)
 			image.set_pixel(x, y, Color(1, 1, 1, alpha))
 	return ImageTexture.create_from_image(image)
 

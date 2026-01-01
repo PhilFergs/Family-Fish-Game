@@ -167,3 +167,129 @@ text = "Restart"
 
 [node name="MenuButton" type="Button" parent="GameOverPanel/Margin/Stack"]
 text = "Main Menu"
+
+[node name="PausePanel" type="PanelContainer" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -150.0
+offset_right = 200.0
+offset_bottom = 150.0
+visible = false
+theme_override_styles/panel = SubResource(1)
+
+[node name="Margin" type="MarginContainer" parent="PausePanel"]
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+
+[node name="Stack" type="VBoxContainer" parent="PausePanel/Margin"]
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+alignment = 1
+theme_override_constants/separation = 10
+
+[node name="PauseLabel" type="Label" parent="PausePanel/Margin/Stack"]
+text = "PAUSED"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.9, 0.8, 1)
+theme_override_colors/font_outline_color = Color(0.08, 0.06, 0.06, 0.9)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 26
+
+[node name="ResumeButton" type="Button" parent="PausePanel/Margin/Stack"]
+text = "Resume"
+
+[node name="RestartButton" type="Button" parent="PausePanel/Margin/Stack"]
+text = "Restart"
+
+[node name="MenuButton" type="Button" parent="PausePanel/Margin/Stack"]
+text = "Main Menu"
+
+[node name="SettingsButton" type="Button" parent="PausePanel/Margin/Stack"]
+text = "Settings"
+
+[node name="SettingsPanel" type="PanelContainer" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -180.0
+offset_right = 240.0
+offset_bottom = 180.0
+visible = false
+theme_override_styles/panel = SubResource(1)
+
+[node name="Margin" type="MarginContainer" parent="SettingsPanel"]
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+
+[node name="Stack" type="VBoxContainer" parent="SettingsPanel/Margin"]
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/separation = 14
+
+[node name="SettingsLabel" type="Label" parent="SettingsPanel/Margin/Stack"]
+text = "SETTINGS"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.9, 0.8, 1)
+theme_override_colors/font_outline_color = Color(0.08, 0.06, 0.06, 0.9)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 24
+
+[node name="VolumeRow" type="VBoxContainer" parent="SettingsPanel/Margin/Stack"]
+
+[node name="VolumeLabel" type="Label" parent="SettingsPanel/Margin/Stack/VolumeRow"]
+text = "Volume"
+
+[node name="VolumeSlider" type="HSlider" parent="SettingsPanel/Margin/Stack/VolumeRow"]
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="SpeedRow" type="VBoxContainer" parent="SettingsPanel/Margin/Stack"]
+
+[node name="SpeedLabel" type="Label" parent="SettingsPanel/Margin/Stack/SpeedRow"]
+text = "Base Speed"
+
+[node name="SpeedSlider" type="HSlider" parent="SettingsPanel/Margin/Stack/SpeedRow"]
+min_value = 120.0
+max_value = 240.0
+step = 1.0
+value = 220.0
+
+[node name="SpawnRow" type="VBoxContainer" parent="SettingsPanel/Margin/Stack"]
+
+[node name="SpawnLabel" type="Label" parent="SettingsPanel/Margin/Stack/SpawnRow"]
+text = "Spawn Rate"
+
+[node name="SpawnSlider" type="HSlider" parent="SettingsPanel/Margin/Stack/SpawnRow"]
+min_value = 0.5
+max_value = 2.0
+step = 0.05
+value = 1.0
+
+[node name="BackButton" type="Button" parent="SettingsPanel/Margin/Stack"]
+text = "Back"
+
+[node name="ResetButton" type="Button" parent="SettingsPanel/Margin/Stack"]
+text = "Reset Defaults"

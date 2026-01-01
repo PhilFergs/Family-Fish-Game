@@ -7,7 +7,10 @@ signal poisoned(duration: float)
 
 @export var base_speed: float = 220.0
 @export var size_scale: float = 1.5
+@export var speed_scale: float = 1.0
 @export var bite_radius: float = 14.0
+@export var base_sprite_size: float = 24.0
+@export var camera_zoom: float = 1.15
 @export var invuln_seconds: float = 1.0
 @export var poison_duration: float = 3.0
 @export var poison_tick_interval: float = 1.4
@@ -33,6 +36,7 @@ func _ready() -> void:
 	invuln_timer.timeout.connect(_on_invuln_timer_timeout)
 	shake_rng.randomize()
 	default_size_scale = size_scale
+	_apply_camera_zoom()
 	_update_visuals()
 
 func set_bounds(new_bounds: Rect2) -> void:
@@ -42,6 +46,9 @@ func set_bounds(new_bounds: Rect2) -> void:
 func set_size_scale(new_scale: float) -> void:
 	size_scale = new_scale
 	_update_visuals()
+
+func set_speed_scale(new_scale: float) -> void:
+	speed_scale = max(new_scale, 0.1)
 
 func _process(delta: float) -> void:
 	if not input_enabled:
@@ -56,10 +63,11 @@ func _process(delta: float) -> void:
 	if direction.x != 0.0:
 		body.flip_h = direction.x < 0.0
 
-	var velocity: Vector2 = direction * base_speed * size_scale
+	var velocity: Vector2 = direction * base_speed * size_scale * speed_scale
 	position += velocity * delta
-	position.x = clamp(position.x, bounds.position.x, bounds.position.x + bounds.size.x)
-	position.y = clamp(position.y, bounds.position.y, bounds.position.y + bounds.size.y)
+	var radius: float = _get_collision_radius()
+	position.x = clamp(position.x, bounds.position.x + radius, bounds.position.x + bounds.size.x - radius)
+	position.y = clamp(position.y, bounds.position.y + radius, bounds.position.y + bounds.size.y - radius)
 	_resolve_blocking()
 	_update_poison(delta)
 	_update_camera_shake(delta)
@@ -94,11 +102,35 @@ func _on_invuln_timer_timeout() -> void:
 	modulate = Color(1, 1, 1, 1)
 
 func _update_visuals() -> void:
-	body.scale = Vector2.ONE * size_scale
-	var radius: float = bite_radius * size_scale
-	var shape: CircleShape2D = hit_shape.shape
-	if shape:
-		shape.radius = radius
+	var texture_scale := _get_texture_scale()
+	body.scale = Vector2.ONE * size_scale * texture_scale
+	var shape: Shape2D = hit_shape.shape
+	if shape is RectangleShape2D:
+		var rect_shape := shape as RectangleShape2D
+		var sprite_size := _get_sprite_size() * size_scale * texture_scale
+		rect_shape.size = sprite_size
+	elif shape is CircleShape2D:
+		var circle_shape := shape as CircleShape2D
+		circle_shape.radius = _get_collision_radius()
+
+func _get_texture_scale() -> float:
+	if not body or not body.texture:
+		return 1.0
+	var size: Vector2 = body.texture.get_size()
+	var max_dim: float = max(size.x, size.y)
+	if max_dim <= 0.0:
+		return 1.0
+	return base_sprite_size / max_dim
+
+func _get_sprite_size() -> Vector2:
+	if not body or not body.texture:
+		return Vector2.ONE * base_sprite_size
+	return body.texture.get_size()
+
+func _get_collision_radius() -> float:
+	var texture_scale := _get_texture_scale()
+	var sprite_size := _get_sprite_size() * size_scale * texture_scale
+	return max(sprite_size.x, sprite_size.y) * 0.5
 
 func _resolve_blocking() -> void:
 	var areas := get_overlapping_areas()
@@ -146,6 +178,7 @@ func _set_camera_limits() -> void:
 	camera.limit_top = int(bounds.position.y)
 	camera.limit_right = int(bounds.position.x + bounds.size.x)
 	camera.limit_bottom = int(bounds.position.y + bounds.size.y)
+	_apply_camera_zoom()
 
 func _start_shake(strength: float, duration: float) -> void:
 	shake_strength = max(shake_strength, strength)
@@ -164,8 +197,8 @@ func _update_camera_shake(delta: float) -> void:
 
 func set_input_enabled(enabled: bool) -> void:
 	input_enabled = enabled
-	monitoring = enabled
-	monitorable = enabled
+	set_deferred("monitoring", enabled)
+	set_deferred("monitorable", enabled)
 	if hit_shape:
 		hit_shape.disabled = not enabled
 	if not enabled:
@@ -185,3 +218,9 @@ func reset_state(new_bounds: Rect2, start_pos: Vector2) -> void:
 	modulate = Color(1, 1, 1, 1)
 	set_size_scale(default_size_scale)
 	set_input_enabled(true)
+
+func _apply_camera_zoom() -> void:
+	if not camera:
+		return
+	var zoom_value: float = max(camera_zoom, 0.2)
+	camera.zoom = Vector2.ONE * zoom_value

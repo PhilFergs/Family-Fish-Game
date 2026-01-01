@@ -20,16 +20,26 @@ extends ColorRect
 @export var border_width: float = 3.0
 @export var glass_highlight_color: Color = Color(0.9, 0.98, 1.0, 0.12)
 @export var glass_highlight_width: float = 10.0
+@export var tank_shadow_color: Color = Color(0.1, 0.08, 0.06, 0.28)
+@export var tank_shadow_height: float = 16.0
+@export var tank_front_rim_color: Color = Color(0.72, 0.86, 0.95, 0.65)
+@export var tank_front_rim_height: float = 16.0
+@export var tank_side_shade: Color = Color(0.2, 0.35, 0.5, 0.14)
+@export var tank_bottom_tint: Color = Color(0.05, 0.1, 0.16, 0.22)
+@export var use_background_tank_art: bool = true
+@export var base_texture_size: Vector2 = Vector2(1536, 1024)
+@export var fixed_tank_rect: Rect2 = Rect2(210, 300, 1107, 461)
+@export var tank_overlay_color: Color = Color(0.05, 0.12, 0.18, 0.22)
 @export var outside_color: Color = Color(0.06, 0.08, 0.1, 1)
 @export var outside_margin: float = 60.0
 @export var table_color: Color = Color(0.35, 0.23, 0.16, 1)
-@export var table_height: float = 80.0
+@export var table_height: float = 380.0
 @export var water_alpha: float = 0.5
-@export var kitchen_texture: Texture2D = preload("res://art/kitchen_mockup.svg")
-@export var tank_width_ratio: float = 0.62
-@export var tank_height_ratio: float = 0.78
-@export var tank_top_margin: float = 40.0
-@export var tank_bottom_inset: float = 6.0
+@export var kitchen_texture: Texture2D = preload("res://art/background.png")
+@export var tank_width_ratio: float = 0.86
+@export var tank_height_ratio: float = 0.95
+@export var tank_top_margin: float = 20.0
+@export var tank_bottom_inset: float = -150.0
 @export var wall_color: Color = Color(0.96, 0.77, 0.52, 1)
 @export var wall_shadow: Color = Color(0.9, 0.7, 0.46, 1)
 @export var baseboard_color: Color = Color(0.78, 0.58, 0.38, 1)
@@ -112,6 +122,18 @@ func _draw() -> void:
 	if tank_rect.size.x <= 0.0 or tank_rect.size.y <= 0.0:
 		return
 
+	if use_background_tank_art:
+		draw_rect(tank_rect, tank_overlay_color)
+		return
+
+	var shadow_rect := Rect2(
+		tank_rect.position.x + tank_rect.size.x * 0.04,
+		tank_rect.position.y + tank_rect.size.y - tank_shadow_height * 0.4,
+		tank_rect.size.x * 0.92,
+		tank_shadow_height
+	)
+	draw_rect(shadow_rect, tank_shadow_color, true, 4.0)
+
 	var _kitchen_left: float = tank_rect.position.x + tank_rect.size.x * 0.06
 	var _kitchen_right: float = tank_rect.position.x + tank_rect.size.x * 0.94
 
@@ -124,6 +146,14 @@ func _draw() -> void:
 		gradient_color.a = water_alpha
 		draw_rect(Rect2(tank_rect.position.x, tank_rect.position.y + y, tank_rect.size.x, gradient_step), gradient_color)
 		y += gradient_step
+
+	var bottom_tint_rect := Rect2(
+		tank_rect.position.x,
+		tank_rect.position.y + tank_rect.size.y * 0.6,
+		tank_rect.size.x,
+		tank_rect.size.y * 0.4
+	)
+	draw_rect(bottom_tint_rect, tank_bottom_tint)
 
 	var wave_y: float = wave_spacing * 0.5
 	while wave_y < tank_rect.size.y:
@@ -142,9 +172,18 @@ func _draw() -> void:
 	draw_rect(Rect2(tank_rect.position.x, tank_rect.position.y, glass_highlight_width, tank_rect.size.y), glass_highlight_color)
 	draw_rect(Rect2(tank_rect.position.x, tank_rect.position.y, tank_rect.size.x, glass_highlight_width), glass_highlight_color)
 	draw_rect(tank_rect, border_color, false, border_width)
+	draw_rect(Rect2(tank_rect.position.x, tank_rect.position.y, tank_rect.size.x * 0.08, tank_rect.size.y), tank_side_shade)
+	draw_rect(Rect2(tank_rect.position.x + tank_rect.size.x * 0.92, tank_rect.position.y, tank_rect.size.x * 0.08, tank_rect.size.y), tank_side_shade)
+	draw_rect(Rect2(tank_rect.position.x, tank_rect.position.y + tank_rect.size.y - tank_front_rim_height, tank_rect.size.x, tank_front_rim_height), tank_front_rim_color)
 
 func _get_tank_rect() -> Rect2:
 	var size_local: Vector2 = size
+	if use_background_tank_art and base_texture_size.x > 0.0 and base_texture_size.y > 0.0:
+		var scale_factor := Vector2(
+			size_local.x / base_texture_size.x,
+			size_local.y / base_texture_size.y
+		)
+		return Rect2(fixed_tank_rect.position * scale_factor, fixed_tank_rect.size * scale_factor)
 	var table_top: float = max(size_local.y - table_height, 0.0)
 	var tank_width: float = clamp(size_local.x * tank_width_ratio, 240.0, size_local.x - outside_margin * 2.0)
 	var tank_height: float = clamp((table_top - tank_top_margin) * tank_height_ratio, 180.0, table_top - tank_top_margin)

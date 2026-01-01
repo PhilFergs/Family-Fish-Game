@@ -7,6 +7,7 @@ extends Node
 @export var max_predators: int = 4
 @export var spawn_interval: float = 1.0
 @export var poison_prey_chance: float = 0.15
+@export var speed_scale: float = 1.0
 
 @onready var spawn_timer: Timer = $SpawnTimer
 
@@ -74,10 +75,12 @@ func _spawn_prey() -> void:
 	_assign_prey_behavior(fish)
 	container.add_child(fish)
 	fish.configure(bounds, player_ref)
-	var target_scale: float = rng.randf_range(0.65, 1.25) * player_ref.size_scale
+	fish.set_speed_scale(speed_scale)
+	var size_roll: float = rng.randf()
+	var target_scale: float = lerp(0.5, 1.15, size_roll * size_roll) * player_ref.size_scale
 	fish.set_size_scale(target_scale)
 	var prey_speed_scale: float = clamp(fish.size_scale / max(player_ref.size_scale, 0.01), 0.4, 1.0)
-	fish.speed = rng.randf_range(90.0, 140.0) * player_ref.size_scale * prey_speed_scale
+	fish.speed = rng.randf_range(90.0, 140.0) * player_ref.size_scale * prey_speed_scale * speed_scale
 	var min_distance: float = 140.0
 	if target_scale > player_ref.size_scale:
 		min_distance = 220.0
@@ -91,7 +94,8 @@ func _spawn_predator() -> void:
 	_assign_predator_behavior(fish)
 	container.add_child(fish)
 	fish.configure(bounds, player_ref)
-	var base_speed: float = player_ref.base_speed * 0.75 * player_ref.size_scale
+	fish.set_speed_scale(speed_scale)
+	var base_speed: float = player_ref.base_speed * 0.75 * player_ref.size_scale * speed_scale
 	fish.speed = rng.randf_range(base_speed * 0.85, base_speed * 1.05)
 	var target_scale: float = rng.randf_range(0.85, 1.6) * player_ref.size_scale
 	fish.set_size_scale(target_scale)
@@ -117,6 +121,14 @@ func set_spawning(enabled: bool) -> void:
 			spawn_timer.start()
 	else:
 		spawn_timer.stop()
+
+func set_speed_scale(new_scale: float) -> void:
+	speed_scale = max(new_scale, 0.1)
+
+func set_spawn_interval(new_interval: float) -> void:
+	spawn_interval = max(new_interval, 0.2)
+	if spawn_timer:
+		spawn_timer.wait_time = spawn_interval
 
 func _assign_prey_behavior(fish: NpcFish) -> void:
 	var roll: float = rng.randf()

@@ -1,10 +1,10 @@
 [gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://scripts/NpcFish.gd" id="1"]
-[ext_resource type="Texture2D" path="res://art/fish_prey.svg" id="2"]
+[ext_resource type="Texture2D" path="res://art/fish_prey_yellow.png" id="2"]
 
-[sub_resource type="CircleShape2D" id="3"]
-radius = 10.0
+[sub_resource type="RectangleShape2D" id="3"]
+size = Vector2(22, 16)
 
 [node name="NpcFish" type="Area2D"]
 collision_layer = 2

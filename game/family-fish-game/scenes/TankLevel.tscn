@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/TankLevel.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/BackgroundGrid.gd" id="6"]
@@ -6,7 +6,10 @@
 [ext_resource type="PackedScene" path="res://scenes/NpcFish.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/HUD.tscn" id="4"]
 [ext_resource type="Script" path="res://scripts/FishSpawner.gd" id="5"]
-[ext_resource type="AudioStream" path="res://sound/Feeding Frenzy Loop.mp3" id="7"]
+[ext_resource type="Script" path="res://scripts/MusicPlaylist.gd" id="7"]
+[ext_resource type="AudioStream" path="res://sound/1.mp3" id="8"]
+[ext_resource type="AudioStream" path="res://sound/2.mp3" id="9"]
+[ext_resource type="AudioStream" path="res://sound/3.mp3" id="10"]
 
 [node name="TankLevel" type="Node2D"]
 script = ExtResource(1)
@@ -18,14 +21,15 @@ anchor_right = 0.0
 anchor_bottom = 0.0
 offset_left = 0.0
 offset_top = 0.0
-offset_right = 2000.0
-offset_bottom = 1200.0
+offset_right = 1536.0
+offset_bottom = 1024.0
 color = Color(0.08, 0.2, 0.32, 1)
 script = ExtResource(6)
 
 [node name="Music" type="AudioStreamPlayer" parent="."]
-stream = ExtResource(7)
-autoplay = true
+script = ExtResource(7)
+tracks = [ExtResource(8), ExtResource(9), ExtResource(10)]
+autoplay = false
 
 [node name="FishContainer" type="Node2D" parent="."]
 
@@ -35,9 +39,9 @@ autoplay = true
 script = ExtResource(5)
 prey_scene = ExtResource(3)
 predator_scene = ExtResource(3)
-max_prey = 12
-max_predators = 4
-spawn_interval = 0.8
+max_prey = 10
+max_predators = 3
+spawn_interval = 1.0
 
 [node name="SpawnTimer" type="Timer" parent="FishSpawner"]
 autostart = false

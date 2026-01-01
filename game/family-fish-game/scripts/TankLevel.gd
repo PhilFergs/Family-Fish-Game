@@ -1,8 +1,12 @@
 extends Node2D
 
-@export var tank_size: Vector2 = Vector2(2000, 1200)
+@export var tank_size: Vector2 = Vector2(1536, 1024)
 @export var tier_bites: Array[int] = [5, 5, 5, 8, 8, 8, 10, 10, 10]
 @export var size_growth_per_tier: float = 0.22
+@export var speed_scale_start: float = 0.4
+@export var speed_scale_max_tier: int = 15
+@export var default_base_speed: float = 220.0
+@export var default_spawn_interval: float = 1.0
 @export var win_tier: int = 10
 @export var tier_objectives: Array[String] = [
 	"Eat 5 small fish to grow.",
@@ -26,7 +30,7 @@ const WIN_SCREEN_SCENE: PackedScene = preload("res://scenes/WinScreen.tscn")
 @onready var spawner: Node = $FishSpawner
 @onready var hud: CanvasLayer = $HUD
 
-var bounds: Rect2 = Rect2(Vector2.ZERO, Vector2(2000, 1200))
+var bounds: Rect2 = Rect2(Vector2.ZERO, Vector2(1536, 1024))
 var tier: int = 1
 var bites: int = 0
 var bites_needed: int = 5
@@ -38,6 +42,7 @@ var last_announced_tier: int = 0
 var overlay_layer: CanvasLayer
 var menu_overlay: Control
 var win_overlay: Control
+var paused: bool = false
 
 func _ready() -> void:
 	background.size = tank_size
@@ -51,6 +56,13 @@ func _ready() -> void:
 	if hud is HUD:
 		(hud as HUD).restart_requested.connect(_on_restart_requested)
 		(hud as HUD).main_menu_requested.connect(_on_main_menu_requested)
+		(hud as HUD).pause_requested.connect(_on_pause_requested)
+		(hud as HUD).resume_requested.connect(_on_resume_requested)
+		(hud as HUD).settings_requested.connect(_on_settings_requested)
+		(hud as HUD).volume_changed.connect(_on_volume_changed)
+		(hud as HUD).base_speed_changed.connect(_on_base_speed_changed)
+		(hud as HUD).spawn_rate_changed.connect(_on_spawn_rate_changed)
+		(hud as HUD).settings_reset_requested.connect(_on_settings_reset_requested)
 
 	if spawner is FishSpawner:
 		var fish_spawner: FishSpawner = spawner
@@ -60,6 +72,7 @@ func _ready() -> void:
 	_announce_tier(true)
 	_update_hud()
 	_setup_overlays()
+	_apply_settings_defaults()
 	_open_menu()
 
 func _on_player_ate_fish(_fish_size: float) -> void:
@@ -93,10 +106,25 @@ func _update_tier_stats(reset_health: bool) -> void:
 
 	var size_scale: float = 1.0 + (tier - 1) * size_growth_per_tier
 	player.set_size_scale(size_scale)
+	var speed_scale: float = _get_speed_scale()
+	player.set_speed_scale(speed_scale)
+	if spawner is FishSpawner:
+		(spawner as FishSpawner).set_speed_scale(speed_scale)
+	_update_fish_speed_scale(speed_scale)
 
 	max_health = 3 + (tier - 1)
 	if reset_health:
 		health = max_health
+
+func _get_speed_scale() -> float:
+	var max_tier: int = max(speed_scale_max_tier, 2)
+	var t: float = clamp(float(tier - 1) / float(max_tier - 1), 0.0, 1.0)
+	return lerp(speed_scale_start, 1.0, t)
+
+func _update_fish_speed_scale(scale: float) -> void:
+	for child in fish_container.get_children():
+		if child is NpcFish:
+			(child as NpcFish).set_speed_scale(scale)
 
 func _update_hud() -> void:
 	if hud is HUD:
@@ -154,6 +182,8 @@ func _open_menu() -> void:
 		player.set_input_enabled(false)
 	if spawner is FishSpawner:
 		(spawner as FishSpawner).set_spawning(true)
+	paused = false
+	get_tree().paused = false
 
 func _close_menu() -> void:
 	if menu_overlay:
@@ -164,6 +194,10 @@ func _close_menu() -> void:
 		hud.visible = true
 	if player:
 		player.set_input_enabled(true)
+	if hud is HUD:
+		(hud as HUD).hide_pause_menu()
+	paused = false
+	get_tree().paused = false
 
 func _show_win_screen() -> void:
 	if win_overlay:
@@ -176,6 +210,8 @@ func _show_win_screen() -> void:
 		player.set_input_enabled(false)
 	if spawner is FishSpawner:
 		(spawner as FishSpawner).set_spawning(false)
+	paused = false
+	get_tree().paused = false
 
 func _reset_run() -> void:
 	won = false
@@ -192,6 +228,8 @@ func _reset_run() -> void:
 	player.reset_state(bounds, bounds.position + bounds.size / 2.0)
 	_announce_tier(true)
 	_update_hud()
+	paused = false
+	get_tree().paused = false
 
 func _clear_fish() -> void:
 	for child in fish_container.get_children():
@@ -221,18 +259,80 @@ func _game_over() -> void:
 	if spawner is FishSpawner:
 		(spawner as FishSpawner).set_spawning(false)
 	player.set_input_enabled(false)
+	paused = false
+	get_tree().paused = false
 
 func _on_restart_requested() -> void:
-	if not game_over:
-		return
 	_reset_run()
 	_close_menu()
 
 func _on_main_menu_requested() -> void:
-	if not game_over:
-		return
 	_open_menu()
 
 func _win() -> void:
 	won = true
 	_show_win_screen()
+
+func _on_pause_requested() -> void:
+	if game_over or won or menu_overlay.visible:
+		return
+	paused = true
+	get_tree().paused = true
+	if hud is HUD:
+		(hud as HUD).show_pause_menu()
+	if player:
+		player.set_input_enabled(false)
+
+func _on_resume_requested() -> void:
+	if not paused:
+		return
+	paused = false
+	get_tree().paused = false
+	if hud is HUD:
+		(hud as HUD).hide_pause_menu()
+	if player:
+		player.set_input_enabled(true)
+
+func _on_settings_requested() -> void:
+	if hud is HUD:
+		(hud as HUD).show_settings_menu()
+
+func _apply_settings_defaults() -> void:
+	if not (hud is HUD):
+		return
+	var volume := _get_master_volume_linear()
+	var base_speed := player.base_speed if player else default_base_speed
+	var spawn_interval := (spawner as FishSpawner).spawn_interval if spawner is FishSpawner else default_spawn_interval
+	(hud as HUD).set_settings_values(volume, base_speed, spawn_interval)
+
+func _on_volume_changed(value: float) -> void:
+	_set_master_volume_linear(value)
+
+func _on_base_speed_changed(value: float) -> void:
+	if player:
+		player.base_speed = value
+
+func _on_spawn_rate_changed(value: float) -> void:
+	if spawner is FishSpawner:
+		var clamped: float = max(value, 0.1)
+		(spawner as FishSpawner).set_spawn_interval(1.0 / clamped)
+
+func _on_settings_reset_requested() -> void:
+	_on_base_speed_changed(default_base_speed)
+	_on_spawn_rate_changed(default_spawn_interval)
+	if hud is HUD:
+		var volume := _get_master_volume_linear()
+		(hud as HUD).set_settings_values(volume, default_base_speed, default_spawn_interval)
+
+func _get_master_volume_linear() -> float:
+	var bus_index := AudioServer.get_bus_index("Master")
+	if bus_index < 0:
+		return 1.0
+	var db := AudioServer.get_bus_volume_db(bus_index)
+	return db_to_linear(db)
+
+func _set_master_volume_linear(value: float) -> void:
+	var bus_index := AudioServer.get_bus_index("Master")
+	if bus_index < 0:
+		return
+	AudioServer.set_bus_volume_db(bus_index, linear_to_db(value))

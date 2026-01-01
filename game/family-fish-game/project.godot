@@ -14,3 +14,10 @@ config/name="Family-Fish-Game"
 run/main_scene="res://scenes/TankLevel.tscn"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1536
+window/size/viewport_height=1024
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"

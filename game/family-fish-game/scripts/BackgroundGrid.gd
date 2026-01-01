@@ -86,11 +86,11 @@ func _generate_decor() -> void:
 		var gx: float = rng.randf_range(tank_rect.position.x, tank_rect.position.x + tank_rect.size.x)
 		var gy: float = rng.randf_range(tank_rect.position.y + tank_rect.size.y - gravel_height, tank_rect.position.y + tank_rect.size.y)
 		var radius: float = rng.randf_range(2.0, 6.0)
-		var color: Color = gravel_color_a if rng.randf() < 0.5 else gravel_color_b
+		var gravel_tint: Color = gravel_color_a if rng.randf() < 0.5 else gravel_color_b
 		gravel_points.append({
 			"pos": Vector2(gx, gy),
 			"radius": radius,
-			"color": color
+			"color": gravel_tint
 		})
 
 func _draw() -> void:
@@ -114,16 +114,15 @@ func _draw() -> void:
 
 	var kitchen_left: float = tank_rect.position.x + tank_rect.size.x * 0.06
 	var kitchen_right: float = tank_rect.position.x + tank_rect.size.x * 0.94
-	var kitchen_width: float = kitchen_right - kitchen_left
 
 	var y: float = 0.0
 	while y < tank_rect.size.y:
 		var t: float = clamp(y / max(tank_rect.size.y, 1.0), 0.0, 1.0)
-		var color: Color = top_color.lerp(bottom_color, t)
+		var gradient_color: Color = top_color.lerp(bottom_color, t)
 		if t > 0.3 and t < 0.7:
-			color = color.lerp(mid_color, 0.25)
-		color.a = water_alpha
-		draw_rect(Rect2(tank_rect.position.x, tank_rect.position.y + y, tank_rect.size.x, gradient_step), color)
+			gradient_color = gradient_color.lerp(mid_color, 0.25)
+		gradient_color.a = water_alpha
+		draw_rect(Rect2(tank_rect.position.x, tank_rect.position.y + y, tank_rect.size.x, gradient_step), gradient_color)
 		y += gradient_step
 
 	var wave_y: float = wave_spacing * 0.5

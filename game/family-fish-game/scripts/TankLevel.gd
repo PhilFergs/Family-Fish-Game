@@ -64,8 +64,8 @@ func _update_tier_stats(reset_health: bool) -> void:
 	var tier_index: int = min(tier - 1, tier_bites.size() - 1)
 	bites_needed = tier_bites[tier_index]
 
-	var scale: float = 1.0 + (tier - 1) * size_growth_per_tier
-	player.set_size_scale(scale)
+	var size_scale: float = 1.0 + (tier - 1) * size_growth_per_tier
+	player.set_size_scale(size_scale)
 
 	max_health = 3 + (tier - 1)
 	if reset_health:

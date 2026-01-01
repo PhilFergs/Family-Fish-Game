@@ -3,6 +3,7 @@ extends Area2D
 
 signal ate_fish(fish_size: float)
 signal took_hit(damage: int)
+signal poisoned(duration: float)
 
 @export var base_speed: float = 220.0
 @export var size_scale: float = 1.5
@@ -21,10 +22,14 @@ var bounds: Rect2 = Rect2(Vector2.ZERO, Vector2(2000, 1200))
 var invulnerable: bool = false
 var poison_time_left: float = 0.0
 var poison_tick_time: float = 0.0
+var shake_time: float = 0.0
+var shake_strength: float = 0.0
+var shake_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 func _ready() -> void:
 	area_entered.connect(_on_area_entered)
 	invuln_timer.timeout.connect(_on_invuln_timer_timeout)
+	shake_rng.randomize()
 	_update_visuals()
 
 func set_bounds(new_bounds: Rect2) -> void:
@@ -51,6 +56,7 @@ func _process(delta: float) -> void:
 	position.y = clamp(position.y, bounds.position.y, bounds.position.y + bounds.size.y)
 	_resolve_blocking()
 	_update_poison(delta)
+	_update_camera_shake(delta)
 
 func _on_area_entered(area: Area2D) -> void:
 	if not (area is NpcFish):
@@ -61,6 +67,7 @@ func _on_area_entered(area: Area2D) -> void:
 		emit_signal("ate_fish", npc.size_scale)
 		if npc.is_poisonous:
 			_apply_poison()
+		_start_shake(2.5, 0.08)
 		npc.queue_free()
 	else:
 		if invulnerable:
@@ -69,6 +76,7 @@ func _on_area_entered(area: Area2D) -> void:
 		emit_signal("took_hit", 1)
 		if npc.is_poisonous:
 			_apply_poison()
+		_start_shake(6.0, 0.2)
 		_start_invuln()
 
 func _start_invuln() -> void:
@@ -111,9 +119,12 @@ func _apply_poison(duration: float = -1.0) -> void:
 	var applied_duration: float = duration
 	if applied_duration <= 0.0:
 		applied_duration = poison_duration
+	var was_poisoned: bool = poison_time_left > 0.0
 	poison_time_left = max(poison_time_left, applied_duration)
 	if poison_time_left == applied_duration:
 		poison_tick_time = 0.0
+	if not was_poisoned:
+		emit_signal("poisoned", poison_time_left)
 
 func _update_poison(delta: float) -> void:
 	if poison_time_left <= 0.0:
@@ -129,3 +140,18 @@ func _set_camera_limits() -> void:
 	camera.limit_top = int(bounds.position.y)
 	camera.limit_right = int(bounds.position.x + bounds.size.x)
 	camera.limit_bottom = int(bounds.position.y + bounds.size.y)
+
+func _start_shake(strength: float, duration: float) -> void:
+	shake_strength = max(shake_strength, strength)
+	shake_time = max(shake_time, duration)
+
+func _update_camera_shake(delta: float) -> void:
+	if shake_time <= 0.0:
+		camera.offset = Vector2.ZERO
+		return
+	shake_time = max(shake_time - delta, 0.0)
+	var offset := Vector2(
+		shake_rng.randf_range(-shake_strength, shake_strength),
+		shake_rng.randf_range(-shake_strength, shake_strength)
+	)
+	camera.offset = offset

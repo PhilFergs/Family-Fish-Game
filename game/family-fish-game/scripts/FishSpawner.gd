@@ -71,6 +71,7 @@ func _spawn_prey() -> void:
 	fish.set_predator(false)
 	if rng.randf() < poison_prey_chance:
 		fish.set_poisonous(true)
+	_assign_prey_behavior(fish)
 	container.add_child(fish)
 	fish.configure(bounds, player_ref)
 	var target_scale: float = rng.randf_range(0.65, 1.25) * player_ref.size_scale
@@ -87,6 +88,7 @@ func _spawn_predator() -> void:
 		return
 	var fish: NpcFish = predator_scene.instantiate()
 	fish.set_predator(true)
+	_assign_predator_behavior(fish)
 	container.add_child(fish)
 	fish.configure(bounds, player_ref)
 	var base_speed: float = player_ref.base_speed * 0.75 * player_ref.size_scale
@@ -108,3 +110,18 @@ func _random_point(min_distance: float = 140.0) -> Vector2:
 		if player_ref and player_ref.position.distance_to(point) > min_distance:
 			return point
 	return point
+
+func _assign_prey_behavior(fish: NpcFish) -> void:
+	var roll: float = rng.randf()
+	if roll < 0.5:
+		fish.set_behavior(NpcFish.Behavior.SCHOOL)
+	elif roll < 0.85:
+		fish.set_behavior(NpcFish.Behavior.SKITTISH)
+	else:
+		fish.set_behavior(NpcFish.Behavior.WANDER)
+
+func _assign_predator_behavior(fish: NpcFish) -> void:
+	if rng.randf() < 0.55:
+		fish.set_behavior(NpcFish.Behavior.AMBUSH)
+	else:
+		fish.set_behavior(NpcFish.Behavior.WANDER)

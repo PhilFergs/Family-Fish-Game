@@ -10,6 +10,11 @@ extends Area2D
 @export var turn_speed: float = 2.5
 @export var drift_strength: float = 0.35
 @export var drift_speed: float = 0.9
+@export var school_range: float = 140.0
+@export var school_strength: float = 0.5
+@export var skittish_speed_boost: float = 1.35
+@export var ambush_trigger_range: float = 220.0
+@export var ambush_speed_boost: float = 1.55
 @export var prey_palette: Array[Color] = [
 	Color(0.93, 0.83, 0.36, 1),
 	Color(0.41, 0.78, 0.98, 1),
@@ -36,6 +41,9 @@ extends Area2D
 
 const PREY_TEXTURE: Texture2D = preload("res://art/fish_prey.svg")
 const PREDATOR_TEXTURE: Texture2D = preload("res://art/fish_predator.svg")
+
+enum Behavior { WANDER, SCHOOL, SKITTISH, AMBUSH }
+@export var behavior: Behavior = Behavior.WANDER
 
 @onready var body: Sprite2D = $Body
 @onready var threat_glow: Sprite2D = $ThreatGlow
@@ -82,6 +90,9 @@ func set_poisonous(value: bool) -> void:
 	if is_inside_tree():
 		_apply_type()
 
+func set_behavior(new_behavior: Behavior) -> void:
+	behavior = new_behavior
+
 func _apply_type() -> void:
 	add_to_group("npc_fish")
 	remove_from_group("poison")
@@ -111,6 +122,7 @@ func _process(delta: float) -> void:
 	var drift: Vector2 = Vector2(cos(drift_angle), sin(drift_angle)) * drift_strength
 
 	var desired_direction: Vector2 = wander_direction + drift
+	var speed_multiplier: float = 1.0
 	if player_ref:
 		var to_player: Vector2 = player_ref.position - position
 		var distance: float = to_player.length()
@@ -120,8 +132,19 @@ func _process(delta: float) -> void:
 		if distance < threat_range:
 			if is_predator and player_ref.size_scale < size_scale:
 				desired_direction = to_player.normalized()
+				if behavior == Behavior.AMBUSH and distance < ambush_trigger_range:
+					speed_multiplier = ambush_speed_boost
 			elif not is_predator and player_ref.size_scale > size_scale:
 				desired_direction = (-to_player).normalized()
+				if behavior == Behavior.SKITTISH:
+					speed_multiplier = skittish_speed_boost
+		if behavior == Behavior.AMBUSH and is_predator and distance >= ambush_trigger_range:
+			speed_multiplier = 0.6
+
+	if behavior == Behavior.SCHOOL and not is_predator:
+		var school_dir: Vector2 = _get_school_direction()
+		if school_dir.length_squared() > 0.01:
+			desired_direction = desired_direction.lerp(school_dir, school_strength)
 
 	if desired_direction.length_squared() < 0.001:
 		desired_direction = wander_direction
@@ -131,7 +154,7 @@ func _process(delta: float) -> void:
 	if current_direction.x != 0.0:
 		body.flip_h = current_direction.x < 0.0
 
-	position += current_direction * speed * delta
+	position += current_direction * speed * speed_multiplier * delta
 	_keep_in_bounds()
 	_update_threat_tint()
 
@@ -140,6 +163,33 @@ func _pick_wander_direction() -> void:
 	var x: float = rng.randf_range(-1.0, 1.0)
 	var y: float = rng.randf_range(-0.55, 0.55)
 	wander_direction = Vector2(x, y).normalized()
+
+func _get_school_direction() -> Vector2:
+	var neighbors: int = 0
+	var center: Vector2 = Vector2.ZERO
+	var alignment: Vector2 = Vector2.ZERO
+	for node in get_tree().get_nodes_in_group("prey"):
+		if node == self:
+			continue
+		var npc := node as NpcFish
+		if npc == null:
+			continue
+		if npc.position.distance_to(position) > school_range:
+			continue
+		center += npc.position
+		alignment += npc.current_direction
+		neighbors += 1
+		if neighbors >= 6:
+			break
+	if neighbors == 0:
+		return Vector2.ZERO
+	center /= float(neighbors)
+	var cohesion: Vector2 = (center - position).normalized()
+	var align_dir: Vector2 = alignment.normalized()
+	var combined: Vector2 = cohesion + align_dir
+	if combined.length_squared() < 0.01:
+		return Vector2.ZERO
+	return combined.normalized()
 
 func _keep_in_bounds() -> void:
 	var min_x: float = bounds.position.x

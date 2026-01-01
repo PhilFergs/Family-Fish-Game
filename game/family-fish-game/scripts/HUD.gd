@@ -5,6 +5,7 @@ signal restart_requested
 signal main_menu_requested
 
 @onready var tier_label: Label = $TopCenter/Panel/Margin/Stack/TierLabel
+@onready var objective_label: Label = $TopCenter/Panel/Margin/Stack/ObjectiveLabel
 @onready var bites_bar: ProgressBar = $TopCenter/Panel/Margin/Stack/FishRow/FishBar
 @onready var bites_value: Label = $TopCenter/Panel/Margin/Stack/FishRow/FishValue
 @onready var health_bar: ProgressBar = $TopCenter/Panel/Margin/Stack/HealthRow/HealthBar
@@ -28,6 +29,9 @@ func update_status(tier: int, bites: int, bites_needed: int, health: int, max_he
 	health_bar.max_value = max(1, max_health)
 	health_bar.value = clamp(health, 0, max_health)
 	health_value.text = "%d/%d" % [health, max_health]
+
+func update_objective(text: String) -> void:
+	objective_label.text = text
 
 func show_message(message: String, seconds: float = 2.0) -> void:
 	message_token += 1

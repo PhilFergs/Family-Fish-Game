@@ -10,6 +10,7 @@ Keep a short, plain-English list of major changes.
 - Added camera shake feedback on bites and hits.
 - Moved tip messages to the bottom of the screen and added edge avoidance so fish don't crowd the borders.
 - Showed main menu and win screens as overlays so gameplay animates behind them.
+- Fixed game-over buttons by enabling HUD input when not paused.
 
 ## How to update
 - Add a new bullet under "Unreleased" for each major change.

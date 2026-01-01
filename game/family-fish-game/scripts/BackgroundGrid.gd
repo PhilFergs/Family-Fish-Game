@@ -112,8 +112,8 @@ func _draw() -> void:
 	if tank_rect.size.x <= 0.0 or tank_rect.size.y <= 0.0:
 		return
 
-	var kitchen_left: float = tank_rect.position.x + tank_rect.size.x * 0.06
-	var kitchen_right: float = tank_rect.position.x + tank_rect.size.x * 0.94
+	var _kitchen_left: float = tank_rect.position.x + tank_rect.size.x * 0.06
+	var _kitchen_right: float = tank_rect.position.x + tank_rect.size.x * 0.94
 
 	var y: float = 0.0
 	while y < tank_rect.size.y:

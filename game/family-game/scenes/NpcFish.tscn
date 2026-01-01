@@ -15,5 +15,11 @@ script = ExtResource(1)
 texture = ExtResource(2)
 position = Vector2(0, 0)
 
+[node name="ThreatGlow" type="Sprite2D" parent="."]
+texture = ExtResource(2)
+position = Vector2(0, 0)
+z_index = 1
+visible = false
+
 [node name="HitShape" type="CollisionShape2D" parent="."]
 shape = SubResource(3)

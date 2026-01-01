@@ -6,6 +6,7 @@ extends Node
 @export var max_prey: int = 12
 @export var max_predators: int = 4
 @export var spawn_interval: float = 1.0
+@export var poison_prey_chance: float = 0.15
 
 @onready var spawn_timer: Timer = $SpawnTimer
 
@@ -68,12 +69,18 @@ func _spawn_prey() -> void:
 		return
 	var fish: NpcFish = prey_scene.instantiate()
 	fish.set_predator(false)
+	if rng.randf() < poison_prey_chance:
+		fish.set_poisonous(true)
 	container.add_child(fish)
 	fish.configure(bounds, player_ref)
-	fish.set_size_scale(rng.randf_range(0.5, 0.9) * player_ref.size_scale)
+	var target_scale: float = rng.randf_range(0.65, 1.25) * player_ref.size_scale
+	fish.set_size_scale(target_scale)
 	var prey_speed_scale: float = clamp(fish.size_scale / max(player_ref.size_scale, 0.01), 0.4, 1.0)
-	fish.speed = rng.randf_range(90.0, 140.0) * prey_speed_scale
-	fish.position = _random_point()
+	fish.speed = rng.randf_range(90.0, 140.0) * player_ref.size_scale * prey_speed_scale
+	var min_distance: float = 140.0
+	if target_scale > player_ref.size_scale:
+		min_distance = 220.0
+	fish.position = _random_point(min_distance)
 
 func _spawn_predator() -> void:
 	if not predator_scene:
@@ -82,18 +89,22 @@ func _spawn_predator() -> void:
 	fish.set_predator(true)
 	container.add_child(fish)
 	fish.configure(bounds, player_ref)
-	var base_speed: float = player_ref.base_speed * 0.75
+	var base_speed: float = player_ref.base_speed * 0.75 * player_ref.size_scale
 	fish.speed = rng.randf_range(base_speed * 0.85, base_speed * 1.05)
-	fish.set_size_scale(rng.randf_range(1.15, 1.6) * player_ref.size_scale)
-	fish.position = _random_point()
+	var target_scale: float = rng.randf_range(0.85, 1.6) * player_ref.size_scale
+	fish.set_size_scale(target_scale)
+	var min_distance: float = 140.0
+	if target_scale > player_ref.size_scale:
+		min_distance = 240.0
+	fish.position = _random_point(min_distance)
 
-func _random_point() -> Vector2:
+func _random_point(min_distance: float = 140.0) -> Vector2:
 	var point: Vector2 = Vector2.ZERO
 	for _i in range(4):
 		point = Vector2(
 			rng.randf_range(bounds.position.x, bounds.position.x + bounds.size.x),
 			rng.randf_range(bounds.position.y, bounds.position.y + bounds.size.y)
 		)
-		if player_ref and player_ref.position.distance_to(point) > 140.0:
+		if player_ref and player_ref.position.distance_to(point) > min_distance:
 			return point
 	return point

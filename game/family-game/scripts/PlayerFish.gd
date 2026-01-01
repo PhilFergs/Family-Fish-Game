@@ -5,9 +5,12 @@ signal ate_fish(fish_size: float)
 signal took_hit(damage: int)
 
 @export var base_speed: float = 220.0
-@export var size_scale: float = 1.0
+@export var size_scale: float = 1.5
 @export var bite_radius: float = 14.0
 @export var invuln_seconds: float = 1.0
+@export var poison_duration: float = 3.0
+@export var poison_tick_interval: float = 1.4
+@export var poison_tick_damage: int = 1
 
 @onready var body: Sprite2D = $Body
 @onready var hit_shape: CollisionShape2D = $HitShape
@@ -16,6 +19,8 @@ signal took_hit(damage: int)
 
 var bounds: Rect2 = Rect2(Vector2.ZERO, Vector2(2000, 1200))
 var invulnerable: bool = false
+var poison_time_left: float = 0.0
+var poison_tick_time: float = 0.0
 
 func _ready() -> void:
 	area_entered.connect(_on_area_entered)
@@ -44,6 +49,8 @@ func _process(delta: float) -> void:
 	position += velocity * delta
 	position.x = clamp(position.x, bounds.position.x, bounds.position.x + bounds.size.x)
 	position.y = clamp(position.y, bounds.position.y, bounds.position.y + bounds.size.y)
+	_resolve_blocking()
+	_update_poison(delta)
 
 func _on_area_entered(area: Area2D) -> void:
 	if not (area is NpcFish):
@@ -52,12 +59,16 @@ func _on_area_entered(area: Area2D) -> void:
 	var npc: NpcFish = area
 	if npc.size_scale <= size_scale:
 		emit_signal("ate_fish", npc.size_scale)
+		if npc.is_poisonous:
+			_apply_poison()
 		npc.queue_free()
 	else:
 		if invulnerable:
 			return
 		invulnerable = true
 		emit_signal("took_hit", 1)
+		if npc.is_poisonous:
+			_apply_poison()
 		_start_invuln()
 
 func _start_invuln() -> void:
@@ -74,6 +85,44 @@ func _update_visuals() -> void:
 	var shape: CircleShape2D = hit_shape.shape
 	if shape:
 		shape.radius = radius
+
+func _resolve_blocking() -> void:
+	var areas := get_overlapping_areas()
+	if areas.is_empty():
+		return
+	var player_radius: float = bite_radius * size_scale
+	for area in areas:
+		if not (area is NpcFish):
+			continue
+		var npc: NpcFish = area
+		if npc.size_scale <= size_scale:
+			continue
+		var npc_radius: float = 10.0 * npc.size_scale
+		var offset: Vector2 = position - npc.position
+		var distance: float = offset.length()
+		if distance == 0.0:
+			offset = Vector2.RIGHT
+			distance = 0.001
+		var min_dist: float = player_radius + npc_radius
+		if distance < min_dist:
+			position += offset.normalized() * (min_dist - distance)
+
+func _apply_poison(duration: float = -1.0) -> void:
+	var applied_duration: float = duration
+	if applied_duration <= 0.0:
+		applied_duration = poison_duration
+	poison_time_left = max(poison_time_left, applied_duration)
+	if poison_time_left == applied_duration:
+		poison_tick_time = 0.0
+
+func _update_poison(delta: float) -> void:
+	if poison_time_left <= 0.0:
+		return
+	poison_time_left = max(poison_time_left - delta, 0.0)
+	poison_tick_time += delta
+	while poison_tick_time >= poison_tick_interval:
+		poison_tick_time -= poison_tick_interval
+		emit_signal("took_hit", poison_tick_damage)
 
 func _set_camera_limits() -> void:
 	camera.limit_left = int(bounds.position.x)

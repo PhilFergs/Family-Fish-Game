@@ -5,7 +5,7 @@ extends Node2D
 @export var size_growth_per_tier: float = 0.22
 @export var win_tier: int = 10
 
-@onready var background: ColorRect = $Background
+@onready var background: BackgroundGrid = $Background
 @onready var player: PlayerFish = $Player
 @onready var fish_container: Node2D = $FishContainer
 @onready var spawner: Node = $FishSpawner
@@ -18,15 +18,19 @@ var bites_needed: int = 5
 var health: int = 3
 var max_health: int = 3
 var won: bool = false
+var game_over: bool = false
 
 func _ready() -> void:
-	bounds = Rect2(Vector2.ZERO, tank_size)
 	background.size = tank_size
-	background.position = bounds.position
-	player.position = bounds.size / 2.0
+	background.position = Vector2.ZERO
+	bounds = background.get_tank_rect()
+	player.position = bounds.position + bounds.size / 2.0
 	player.set_bounds(bounds)
 	player.ate_fish.connect(_on_player_ate_fish)
 	player.took_hit.connect(_on_player_took_hit)
+	if hud is HUD:
+		(hud as HUD).restart_requested.connect(_on_restart_requested)
+		(hud as HUD).main_menu_requested.connect(_on_main_menu_requested)
 
 	if spawner is FishSpawner:
 		var fish_spawner: FishSpawner = spawner
@@ -53,6 +57,7 @@ func _on_player_took_hit(damage: int) -> void:
 	health = max(0, health - damage)
 	_update_hud()
 	if health <= 0:
+		print("You got eaten")
 		_game_over()
 
 func _update_tier_stats(reset_health: bool) -> void:
@@ -71,6 +76,23 @@ func _update_hud() -> void:
 		(hud as HUD).update_status(tier, bites, bites_needed, health, max_health)
 
 func _game_over() -> void:
+	if game_over:
+		return
+	game_over = true
+	if hud is HUD:
+		(hud as HUD).show_game_over()
+	get_tree().paused = true
+
+func _on_restart_requested() -> void:
+	if not game_over:
+		return
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/TankLevel.tscn")
+
+func _on_main_menu_requested() -> void:
+	if not game_over:
+		return
+	get_tree().paused = false
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 func _win() -> void:

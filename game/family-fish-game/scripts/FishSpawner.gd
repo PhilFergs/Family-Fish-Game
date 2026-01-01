@@ -111,6 +111,13 @@ func _random_point(min_distance: float = 140.0) -> Vector2:
 			return point
 	return point
 
+func set_spawning(enabled: bool) -> void:
+	if enabled:
+		if spawn_timer.is_stopped():
+			spawn_timer.start()
+	else:
+		spawn_timer.stop()
+
 func _assign_prey_behavior(fish: NpcFish) -> void:
 	var roll: float = rng.randf()
 	if roll < 0.5:

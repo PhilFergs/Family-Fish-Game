@@ -17,6 +17,9 @@ extends Node2D
 	"Eat 10 fish to become the biggest fish."
 ]
 
+const MAIN_MENU_SCENE: PackedScene = preload("res://scenes/MainMenu.tscn")
+const WIN_SCREEN_SCENE: PackedScene = preload("res://scenes/WinScreen.tscn")
+
 @onready var background: BackgroundGrid = $Background
 @onready var player: PlayerFish = $Player
 @onready var fish_container: Node2D = $FishContainer
@@ -32,6 +35,9 @@ var max_health: int = 3
 var won: bool = false
 var game_over: bool = false
 var last_announced_tier: int = 0
+var overlay_layer: CanvasLayer
+var menu_overlay: Control
+var win_overlay: Control
 
 func _ready() -> void:
 	background.size = tank_size
@@ -53,6 +59,8 @@ func _ready() -> void:
 	_update_tier_stats(true)
 	_announce_tier(true)
 	_update_hud()
+	_setup_overlays()
+	_open_menu()
 
 func _on_player_ate_fish(_fish_size: float) -> void:
 	if won:
@@ -116,28 +124,115 @@ func _on_player_poisoned(_duration: float) -> void:
 	if hud is HUD:
 		(hud as HUD).show_message("Poisoned! Health will tick down.", 2.0)
 
+func _setup_overlays() -> void:
+	overlay_layer = CanvasLayer.new()
+	overlay_layer.layer = 5
+	add_child(overlay_layer)
+	menu_overlay = MAIN_MENU_SCENE.instantiate()
+	win_overlay = WIN_SCREEN_SCENE.instantiate()
+	overlay_layer.add_child(menu_overlay)
+	overlay_layer.add_child(win_overlay)
+	menu_overlay.visible = false
+	win_overlay.visible = false
+	if menu_overlay.has_signal("start_requested"):
+		menu_overlay.start_requested.connect(_on_menu_start_requested)
+	if menu_overlay.has_signal("quit_requested"):
+		menu_overlay.quit_requested.connect(_on_menu_quit_requested)
+	if win_overlay.has_signal("replay_requested"):
+		win_overlay.replay_requested.connect(_on_win_replay_requested)
+	if win_overlay.has_signal("menu_requested"):
+		win_overlay.menu_requested.connect(_on_win_menu_requested)
+
+func _open_menu() -> void:
+	if menu_overlay:
+		menu_overlay.visible = true
+	if win_overlay:
+		win_overlay.visible = false
+	if hud:
+		hud.visible = false
+	if player:
+		player.set_input_enabled(false)
+	if spawner is FishSpawner:
+		(spawner as FishSpawner).set_spawning(true)
+
+func _close_menu() -> void:
+	if menu_overlay:
+		menu_overlay.visible = false
+	if win_overlay:
+		win_overlay.visible = false
+	if hud:
+		hud.visible = true
+	if player:
+		player.set_input_enabled(true)
+
+func _show_win_screen() -> void:
+	if win_overlay:
+		win_overlay.visible = true
+	if menu_overlay:
+		menu_overlay.visible = false
+	if hud:
+		hud.visible = false
+	if player:
+		player.set_input_enabled(false)
+	if spawner is FishSpawner:
+		(spawner as FishSpawner).set_spawning(false)
+
+func _reset_run() -> void:
+	won = false
+	game_over = false
+	tier = 1
+	bites = 0
+	_update_tier_stats(true)
+	last_announced_tier = 0
+	if hud is HUD:
+		(hud as HUD).hide_game_over()
+	_clear_fish()
+	if spawner is FishSpawner:
+		(spawner as FishSpawner).set_spawning(true)
+	player.reset_state(bounds, bounds.position + bounds.size / 2.0)
+	_announce_tier(true)
+	_update_hud()
+
+func _clear_fish() -> void:
+	for child in fish_container.get_children():
+		if child is NpcFish:
+			child.queue_free()
+
+func _on_menu_start_requested() -> void:
+	_reset_run()
+	_close_menu()
+
+func _on_menu_quit_requested() -> void:
+	get_tree().quit()
+
+func _on_win_replay_requested() -> void:
+	_reset_run()
+	_close_menu()
+
+func _on_win_menu_requested() -> void:
+	_open_menu()
+
 func _game_over() -> void:
 	if game_over:
 		return
 	game_over = true
 	if hud is HUD:
 		(hud as HUD).show_game_over()
-	get_tree().paused = true
+	if spawner is FishSpawner:
+		(spawner as FishSpawner).set_spawning(false)
+	player.set_input_enabled(false)
 
 func _on_restart_requested() -> void:
 	if not game_over:
 		return
-	get_tree().paused = false
-	get_tree().change_scene_to_file("res://scenes/TankLevel.tscn")
+	_reset_run()
+	_close_menu()
 
 func _on_main_menu_requested() -> void:
 	if not game_over:
 		return
-	get_tree().paused = false
-	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+	_open_menu()
 
 func _win() -> void:
 	won = true
-	if spawner is FishSpawner:
-		(spawner as FishSpawner).queue_free()
-	get_tree().change_scene_to_file("res://scenes/WinScreen.tscn")
+	_show_win_screen()

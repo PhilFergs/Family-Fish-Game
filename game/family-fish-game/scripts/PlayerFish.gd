@@ -25,11 +25,14 @@ var poison_tick_time: float = 0.0
 var shake_time: float = 0.0
 var shake_strength: float = 0.0
 var shake_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var input_enabled: bool = true
+var default_size_scale: float = 1.0
 
 func _ready() -> void:
 	area_entered.connect(_on_area_entered)
 	invuln_timer.timeout.connect(_on_invuln_timer_timeout)
 	shake_rng.randomize()
+	default_size_scale = size_scale
 	_update_visuals()
 
 func set_bounds(new_bounds: Rect2) -> void:
@@ -41,6 +44,9 @@ func set_size_scale(new_scale: float) -> void:
 	_update_visuals()
 
 func _process(delta: float) -> void:
+	if not input_enabled:
+		_update_camera_shake(delta)
+		return
 	var direction: Vector2 = Vector2(
 		Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left"),
 		Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
@@ -155,3 +161,27 @@ func _update_camera_shake(delta: float) -> void:
 		shake_rng.randf_range(-shake_strength, shake_strength)
 	)
 	camera.offset = offset
+
+func set_input_enabled(enabled: bool) -> void:
+	input_enabled = enabled
+	monitoring = enabled
+	monitorable = enabled
+	if hit_shape:
+		hit_shape.disabled = not enabled
+	if not enabled:
+		invuln_timer.stop()
+		invulnerable = false
+		modulate = Color(1, 1, 1, 1)
+
+func reset_state(new_bounds: Rect2, start_pos: Vector2) -> void:
+	set_bounds(new_bounds)
+	position = start_pos
+	invulnerable = false
+	poison_time_left = 0.0
+	poison_tick_time = 0.0
+	shake_time = 0.0
+	shake_strength = 0.0
+	camera.offset = Vector2.ZERO
+	modulate = Color(1, 1, 1, 1)
+	set_size_scale(default_size_scale)
+	set_input_enabled(true)

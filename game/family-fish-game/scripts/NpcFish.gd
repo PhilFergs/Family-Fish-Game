@@ -15,6 +15,8 @@ extends Area2D
 @export var skittish_speed_boost: float = 1.35
 @export var ambush_trigger_range: float = 220.0
 @export var ambush_speed_boost: float = 1.55
+@export var edge_avoid_distance: float = 140.0
+@export var edge_avoid_strength: float = 0.75
 @export var prey_palette: Array[Color] = [
 	Color(0.93, 0.83, 0.36, 1),
 	Color(0.41, 0.78, 0.98, 1),
@@ -146,6 +148,10 @@ func _process(delta: float) -> void:
 		if school_dir.length_squared() > 0.01:
 			desired_direction = desired_direction.lerp(school_dir, school_strength)
 
+	var edge_steer: Vector2 = _get_edge_avoidance()
+	if edge_steer.length_squared() > 0.01:
+		desired_direction = desired_direction.lerp(edge_steer, edge_avoid_strength)
+
 	if desired_direction.length_squared() < 0.001:
 		desired_direction = wander_direction
 	desired_direction = desired_direction.normalized()
@@ -163,6 +169,24 @@ func _pick_wander_direction() -> void:
 	var x: float = rng.randf_range(-1.0, 1.0)
 	var y: float = rng.randf_range(-0.55, 0.55)
 	wander_direction = Vector2(x, y).normalized()
+
+func _get_edge_avoidance() -> Vector2:
+	var steer: Vector2 = Vector2.ZERO
+	var left_limit: float = bounds.position.x + edge_avoid_distance
+	var right_limit: float = bounds.position.x + bounds.size.x - edge_avoid_distance
+	var top_limit: float = bounds.position.y + edge_avoid_distance
+	var bottom_limit: float = bounds.position.y + bounds.size.y - edge_avoid_distance
+	if position.x < left_limit:
+		steer.x += 1.0
+	elif position.x > right_limit:
+		steer.x -= 1.0
+	if position.y < top_limit:
+		steer.y += 1.0
+	elif position.y > bottom_limit:
+		steer.y -= 1.0
+	if steer.length_squared() < 0.01:
+		return Vector2.ZERO
+	return steer.normalized()
 
 func _get_school_direction() -> Vector2:
 	var neighbors: int = 0

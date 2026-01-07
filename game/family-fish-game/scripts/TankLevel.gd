@@ -23,6 +23,8 @@ extends Node2D
 
 const MAIN_MENU_SCENE: PackedScene = preload("res://scenes/MainMenu.tscn")
 const WIN_SCREEN_SCENE: PackedScene = preload("res://scenes/WinScreen.tscn")
+const SETTINGS_PATH: String = "user://settings.cfg"
+const SETTINGS_SECTION: String = "settings"
 
 @onready var background: BackgroundGrid = $Background
 @onready var player: PlayerFish = $Player
@@ -72,6 +74,7 @@ func _ready() -> void:
 	_announce_tier(true)
 	_update_hud()
 	_setup_overlays()
+	_load_settings()
 	_apply_settings_defaults()
 	_open_menu()
 
@@ -301,28 +304,35 @@ func _apply_settings_defaults() -> void:
 	if not (hud is HUD):
 		return
 	var volume := _get_master_volume_linear()
-	var base_speed := player.base_speed if player else default_base_speed
-	var spawn_interval := (spawner as FishSpawner).spawn_interval if spawner is FishSpawner else default_spawn_interval
-	(hud as HUD).set_settings_values(volume, base_speed, spawn_interval)
+	var base_speed: float = player.base_speed if player else default_base_speed
+	var spawn_interval: float = (spawner as FishSpawner).spawn_interval if spawner is FishSpawner else default_spawn_interval
+	var spawn_rate: float = 1.0 / max(spawn_interval, 0.001)
+	(hud as HUD).set_settings_values(volume, base_speed, spawn_rate)
+	_save_settings()
 
 func _on_volume_changed(value: float) -> void:
 	_set_master_volume_linear(value)
+	_save_settings()
 
 func _on_base_speed_changed(value: float) -> void:
 	if player:
 		player.base_speed = value
+	_save_settings()
 
 func _on_spawn_rate_changed(value: float) -> void:
 	if spawner is FishSpawner:
 		var clamped: float = max(value, 0.1)
 		(spawner as FishSpawner).set_spawn_interval(1.0 / clamped)
+	_save_settings()
 
 func _on_settings_reset_requested() -> void:
 	_on_base_speed_changed(default_base_speed)
-	_on_spawn_rate_changed(default_spawn_interval)
+	var reset_spawn_rate: float = 1.0 / max(default_spawn_interval, 0.001)
+	_on_spawn_rate_changed(reset_spawn_rate)
 	if hud is HUD:
 		var volume := _get_master_volume_linear()
-		(hud as HUD).set_settings_values(volume, default_base_speed, default_spawn_interval)
+		(hud as HUD).set_settings_values(volume, default_base_speed, reset_spawn_rate)
+	_save_settings()
 
 func _get_master_volume_linear() -> float:
 	var bus_index := AudioServer.get_bus_index("Master")
@@ -336,3 +346,25 @@ func _set_master_volume_linear(value: float) -> void:
 	if bus_index < 0:
 		return
 	AudioServer.set_bus_volume_db(bus_index, linear_to_db(value))
+
+func _load_settings() -> void:
+	var config := ConfigFile.new()
+	if config.load(SETTINGS_PATH) != OK:
+		return
+	if config.has_section_key(SETTINGS_SECTION, "volume"):
+		_set_master_volume_linear(float(config.get_value(SETTINGS_SECTION, "volume")))
+	if config.has_section_key(SETTINGS_SECTION, "base_speed"):
+		_on_base_speed_changed(float(config.get_value(SETTINGS_SECTION, "base_speed")))
+	if config.has_section_key(SETTINGS_SECTION, "spawn_rate"):
+		_on_spawn_rate_changed(float(config.get_value(SETTINGS_SECTION, "spawn_rate")))
+
+func _save_settings() -> void:
+	var config := ConfigFile.new()
+	var volume := _get_master_volume_linear()
+	var base_speed: float = player.base_speed if player else default_base_speed
+	var spawn_interval: float = (spawner as FishSpawner).spawn_interval if spawner is FishSpawner else default_spawn_interval
+	var spawn_rate: float = 1.0 / max(spawn_interval, 0.001)
+	config.set_value(SETTINGS_SECTION, "volume", volume)
+	config.set_value(SETTINGS_SECTION, "base_speed", base_speed)
+	config.set_value(SETTINGS_SECTION, "spawn_rate", spawn_rate)
+	config.save(SETTINGS_PATH)
